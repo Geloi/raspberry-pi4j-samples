@@ -58,11 +58,15 @@ var addCanvasListener = function(canvasName) {
 var plotPoint = function(canvasName, pt, color) {
   var canvas = document.getElementById(canvasName);
   var context = canvas.getContext('2d');
-  context.beginPath();
-  context.fillStyle = color;
-  context.arc(pt.x, pt.y, 2, 0, 2*Math.PI);
-  context.stroke();
-  context.fill();
+  plot(context, pt, color);
+};
+
+var plot = function(context, pt, color) {
+	context.beginPath();
+	context.fillStyle = color;
+	context.arc(pt.x, pt.y, 2, 0, 2*Math.PI);
+	context.stroke();
+	context.fill();
 };
 
 var currentStep = 0;
@@ -76,10 +80,22 @@ var travel = function(canvasName, from, to, nbStep) {
   }
 };
 
-var globeViewRightLeftRotation = -23;
-var globeViewForeAftRotation = 30;
+/*
+ * The right tilt is:
+  *   chartPanel.setGlobeViewRightLeftRotation(-(sunD * Math.sin(Math.toRadians(lhaSun))));
+ */
+var globeViewRightLeftRotation = -23.4; // Tilt
+var globeViewForeAftRotation = 0;
 
-var globeViewLngOffset = -122; // Observer's longitude?
+var globeViewLngOffset = 0; // Observer's longitude
+
+var userPosition = {};
+
+var setUserPosition = function(pos) {
+	userPosition = pos;
+	globeViewLngOffset = pos.longitude;
+	globeViewForeAftRotation = pos.latitude;
+};
 
 /**
  * Used to draw a globe
@@ -124,7 +140,7 @@ var _west = -180,
 		_south = -90;
 
 var isTransparentGlobe = function() {
-	return true; // Hard-coded for now
+	return false; // Hard-coded for now
 };
 
 /**
@@ -143,8 +159,9 @@ var adjustBoundaries = function() {
 	// _south = south;
 	// _east = east;
 	// _west = west;
-	if (sign(_east) != sign(_west) && sign(_east) == -1)
-		_west = _west - 360;
+	if (sign(_east) != sign(_west) && sign(_east) == -1) {
+		_west -= 360;
+	}
 };
 
 var sign = function(d) {
@@ -275,72 +292,60 @@ var drawGlobe = function (canvas, context) {
 	context.lineWidth = 1;
 	context.strokeStyle = 'rgba(0, 255, 255, 0.3)'; // 'cyan';
 
-	var top = 0, bottom = h, left = h, right = 0;
-	// Meridians
-	for (var i = Math.min(_east, _west); i < Math.max(_east, _west); i += gstep) {
-		var previous = null;
-		context.beginPath();
-		for (var j = Math.min(_south, _north) + (lstep / 5); j < Math.max(_south, _north); j += (lstep / 5)) {
-			var p = getPanelPoint(j, i);
+	var drawGrid = true;
+	if (drawGrid) {
+		// Meridians
+		for (var i = Math.min(_east, _west); i < Math.max(_east, _west); i += gstep) {
+			var previous = null;
+			context.beginPath();
+			for (var j = Math.min(_south, _north) + (lstep / 5); j < Math.max(_south, _north); j += (lstep / 5)) {
+				var p = getPanelPoint(j, i);
 
-			top = Math.max(p.y, top);
-			bottom = Math.min(p.y, bottom);
-			right = Math.max(p.x, right);
-			left = Math.min(p.x, left);
+				var thisPointIsBehind = isBehind(toRadians(j), toRadians(i - globeViewLngOffset));
 
-			var thisPointIsBehind = isBehind(j, i - globeViewLngOffset);
-
-			if (!isTransparentGlobe() && thisPointIsBehind) {
+				if (!isTransparentGlobe() && thisPointIsBehind) {
 //			context.stroke();
-				previous = null;
-			} else {
-				if (previous !== null) {
-					if (Math.abs(previous.x - p.x) < (canvas.width / 2) && Math.abs(previous.y - p.y) < (canvas.height / 2)) {
-						context.lineTo(p.x, p.y);
-					}
+					previous = null;
 				} else {
-					context.moveTo(p.x, p.y);
-				}
-
-//			  context.beginPath();
-// 				context.fillStyle = 'red';
-// 				context.arc(p.x, p.y, 2, 0, 2*Math.PI);
-// 				context.stroke();
-// 				context.fill();
-
-				previous = p;
-			}
-		}
-		context.stroke();
-		context.closePath();
-	}
-
-//console.log("top, bottom, left, right ", top, bottom, left, right);
-
-	// Parallels
-	for (var j = Math.min(_south, _north) + lstep; j < Math.max(_south, _north); j += lstep) {
-		var previous = null;
-		context.beginPath();
-		for (var i = Math.min(_east, _west); i <= Math.max(_east, _west); i += gstep) {
-			var p = getPanelPoint(j, i);
-			var thisPointIsBehind = isBehind(j, i - globeViewLngOffset);
-
-			if (!isTransparentGlobe() && thisPointIsBehind) {
-				context.stroke();
-				previous = null;
-			} else {
-				if (previous !== null) {
-					if (Math.abs(previous.x - p.x) < (canvas.width / 2) && Math.abs(previous.y - p.y) < (canvas.height / 2)) {
-						context.lineTo(p.x, p.y);
+					if (previous !== null) {
+						if (Math.abs(previous.x - p.x) < (canvas.width / 2) && Math.abs(previous.y - p.y) < (canvas.height / 2)) {
+							context.lineTo(p.x, p.y);
+						}
+					} else {
+						context.moveTo(p.x, p.y);
 					}
-				} else {
-					context.moveTo(p.x, p.y);
+					previous = p;
 				}
-				previous = p;
 			}
+			context.stroke();
+			context.closePath();
 		}
-		context.closePath();
-		context.stroke();
+
+		// Parallels
+		for (var j = Math.min(_south, _north) + lstep; j < Math.max(_south, _north); j += lstep) {
+			var previous = null;
+			context.beginPath();
+			for (var i = Math.min(_east, _west); i <= Math.max(_east, _west); i += gstep) {
+				var p = getPanelPoint(j, i);
+				var thisPointIsBehind = isBehind(toRadians(j), toRadians(i - globeViewLngOffset));
+
+				if (!isTransparentGlobe() && thisPointIsBehind) {
+//				context.stroke();
+					previous = null;
+				} else {
+					if (previous !== null) {
+						if (Math.abs(previous.x - p.x) < (canvas.width / 2) && Math.abs(previous.y - p.y) < (canvas.height / 2)) {
+							context.lineTo(p.x, p.y);
+						}
+					} else {
+						context.moveTo(p.x, p.y);
+					}
+					previous = p;
+				}
+			}
+			context.stroke();
+			context.closePath();
+		}
 	}
 
 	// Chart
@@ -351,7 +356,7 @@ var drawGlobe = function (canvas, context) {
 			var worldTop = fullWorldMap.top;
 			var section = worldTop.section; // We assume top has been found.
 
-	    console.log("Found " + section.length + " section(s).")
+//    console.log("Found " + section.length + " section(s).")
 			for (var i = 0; i < section.length; i++) {
 				var point = section[i].point;
 				if (point !== undefined) {
@@ -363,8 +368,15 @@ var drawGlobe = function (canvas, context) {
 						var lng = parseFloat(point[p].Lng);
 						if (lng < -180) lng += 360;
 						if (lng > 180) lng -= 360;
+
+						var thisPointIsBehind = isBehind(toRadians(lat), toRadians(lng - globeViewLngOffset));
+						var drawIt = true;
+						if (!isTransparentGlobe() && thisPointIsBehind) {
+							drawIt = false;
+							previousPt = null; // TODO Something better
+						}
 						var pt = getPanelPoint(lat, lng);
-						if (p === 0) {
+						if (previousPt === null) { // p === 0) {
 							context.moveTo(pt.x, pt.y);
 							firstPt = pt;
 							previousPt = pt;
@@ -376,7 +388,7 @@ var drawGlobe = function (canvas, context) {
 						}
 					}
 				}
-				if (firstPt !== null) {
+				if (false && firstPt !== null && previousPt != null) {
 					context.lineTo(firstPt.x, firstPt.y); // close the loop
 				}
 				context.lineWidth = 1;
@@ -387,6 +399,13 @@ var drawGlobe = function (canvas, context) {
 		} catch (ex) {
 			console.log("Oops:" + ex);
 		}
+	}
+	// User position
+	if (userPosition !== {}) {
+		var userPos = getPanelPoint(userPosition.latitude, userPosition.longitude);
+		plot(context, userPos, "red");
+		context.fillStyle = "red";
+		context.fillText("Your position", Math.round(userPos.x) + 3, Math.round(userPos.y) - 3);
 	}
 };
 
@@ -430,6 +449,11 @@ var drawAnaximandreChart = function(canvas, context) {
 		context.fill();
 		context.closePath();
 	}
+	// User position
+	if (userPosition !== {}) {
+		var userPos = getPanelPoint(userPosition.latitude, userPosition.longitude);
+		plotPosToCanvas(canvas, userPos.latitude, userPos.longitude, "Your position");
+	}
 };
 
 var drawWorldMap = function(canvasName, proj) {
@@ -458,10 +482,28 @@ var drawWorldMap = function(canvasName, proj) {
 		  console.log("Oops:" + ex);
 	  }
   }
+  // Print position
+	if (userPosition !== {}) {
+		var strLat = decToSex(userPosition.latitude, "NS");
+		var strLng = decToSex(userPosition.longitude, "EW");
+		context.fillText(strLat, 10, 10);
+		context.fillText(strLng, 10, 22);
+	}
+
 //var end = new Date().getTime();
 //console.log("Operation completed in " + (end - start) + " ms.");
 };
 
+/**
+ * For Anaximandre (for now).
+ * TODO Make it generic (projection agnostic)
+ *
+ * @param canvasName
+ * @param lat
+ * @param lng
+ * @param label
+ * @param color
+ */
 var plotPosToCanvas = function(canvasName, lat, lng, label, color) {
   var canvas = document.getElementById(canvasName); 
   var pt = posToCanvas(canvas, lat, lng);
