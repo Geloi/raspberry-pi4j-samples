@@ -4,7 +4,6 @@
  */
 
 const projections = [ "ANAXIMANDRE", "MERCATOR", "GLOBE" ];
-var projection = "ANAXIMANDRE";
 
 var clear = function(canvasName) {
   var canvas = document.getElementById(canvasName);
@@ -194,7 +193,7 @@ var vGrid = 5,
     hGrid = 5;
 var w, h;
 
-var drawSphericGrid = function (canvas, context) {
+var drawGlobe = function (canvas, context) {
 	var minX = Number.MAX_VALUE;
 	var maxX = -Number.MAX_VALUE;
 	var minY = Number.MAX_VALUE;
@@ -383,18 +382,57 @@ var drawSphericGrid = function (canvas, context) {
 				context.lineWidth = 1;
 				context.strokeStyle = 'cyan';
 				context.stroke();
-				// context.fillStyle = "goldenrod";
-				// context.fill();
 				context.closePath();
 			}
 		} catch (ex) {
 			console.log("Oops:" + ex);
 		}
 	}
-
 };
 
-var drawWorldMap = function(canvasName) {
+var drawAnaximandreChart = function(canvas, context) {
+	// Square projection, Anaximandre.
+	var worldTop = fullWorldMap.top;
+	var section = worldTop.section; // We assume top has been found.
+
+//    console.log("Found " + section.length + " section(s).")
+	for (var i = 0; i < section.length; i++) {
+		var point = section[i].point;
+		if (point !== undefined) {
+			var firstPt = null;
+			var previousPt = null;
+			context.beginPath();
+			for (var p = 0; p < point.length; p++) {
+				var lat = parseFloat(point[p].Lat);
+				var lng = parseFloat(point[p].Lng);
+				if (lng < -180) lng += 360;
+				if (lng > 180) lng -= 360;
+				var pt = posToCanvas(canvas, lat, lng);
+				if (p === 0) {
+					context.moveTo(pt.x, pt.y);
+					firstPt = pt;
+					previousPt = pt;
+				} else {
+					if (Math.abs(previousPt.x - pt.x) < (canvas.width / 2) && Math.abs(previousPt.y - pt.y) < (canvas.height / 2)) {
+						context.lineTo(pt.x, pt.y);
+						previousPt = pt;
+					}
+				}
+			}
+		}
+		if (firstPt !== null) {
+			context.lineTo(firstPt.x, firstPt.y); // close the loop
+		}
+		context.lineWidth = 1;
+		context.strokeStyle = 'black';
+		context.stroke();
+		context.fillStyle = "goldenrod";
+		context.fill();
+		context.closePath();
+	}
+};
+
+var drawWorldMap = function(canvasName, proj) {
 //var start = new Date().getTime();
   
   var canvas = document.getElementById(canvasName);
@@ -404,51 +442,17 @@ var drawWorldMap = function(canvasName) {
     console.log("You must load [WorldMapData.js] to display a chart.");
   } else {
 	  try {
-	  	// Square projection, Anaximandre.
-		  var worldTop = fullWorldMap.top;
-		  var section = worldTop.section; // We assume top has been found.
-
-		  try {
-			  drawSphericGrid(canvas, context);
-//		  return;
-		  } catch (err) {
-		  	console.log(err);
-		  }
-
-//    console.log("Found " + section.length + " section(s).")
-		  for (var i = 0; i < section.length; i++) {
-			  var point = section[i].point;
-			  if (point !== undefined) {
-				  var firstPt = null;
-				  var previousPt = null;
-				  context.beginPath();
-				  for (var p = 0; p < point.length; p++) {
-					  var lat = parseFloat(point[p].Lat);
-					  var lng = parseFloat(point[p].Lng);
-					  if (lng < -180) lng += 360;
-					  if (lng > 180) lng -= 360;
-					  var pt = posToCanvas(canvas, lat, lng);
-					  if (p === 0) {
-						  context.moveTo(pt.x, pt.y);
-						  firstPt = pt;
-						  previousPt = pt;
-					  } else {
-						  if (Math.abs(previousPt.x - pt.x) < (canvas.width / 2) && Math.abs(previousPt.y - pt.y) < (canvas.height / 2)) {
-							  context.lineTo(pt.x, pt.y);
-							  previousPt = pt;
-						  }
-					  }
-				  }
-			  }
-			  if (firstPt !== null) {
-				  context.lineTo(firstPt.x, firstPt.y); // close the loop
-			  }
-			  context.lineWidth = 1;
-			  context.strokeStyle = 'black';
-			  context.stroke();
-			  context.fillStyle = "goldenrod";
-			  context.fill();
-			  context.closePath();
+	  	switch (proj) {
+			  case undefined:
+			  case "ANAXIMANDRE":
+				  drawAnaximandreChart(canvas, context);
+			  	break;
+			  case "GLOBE":
+				  drawGlobe(canvas, context);
+			  	break;
+			  default:
+			  	console.log("Projection %s not available yet", proj);
+			  	break;
 		  }
 	  } catch (ex) {
 		  console.log("Oops:" + ex);

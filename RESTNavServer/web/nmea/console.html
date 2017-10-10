@@ -136,7 +136,7 @@
 
     clear('mapCanvas');
     setTimeout(function() {
-        drawWorldMap('mapCanvas');
+        drawWorldMap('mapCanvas', "GLOBE");
     }, 1);
 
     var type = getQSPrm('type');
@@ -172,7 +172,7 @@
       // Plot the station on the map
       var canvas = "mapCanvas";
       clear(canvas);
-      drawWorldMap(canvas);
+      drawWorldMap(canvas, "GLOBE");
       plotPosToCanvas(canvas, val.lat, val.lng, label);
     });
     events.subscribe('bsp', function(val) {
