@@ -168,6 +168,16 @@ function WorldMap (cName, prj) {
 		} catch (err) {
 			console.log(err);
 		}
+		if (data.sun !== undefined) {
+			// set .setGlobeViewRightLeftRotation(-(sunD * Math.sin(Math.toRadians(lhaSun))));
+			if (userPosition !== {}) {
+				var lhaSun = data.sun.gha + userPosition.longitude;
+				while (lhaSun > 360) lhaSun -= 360;
+				while (lhaSun < 0) lhaSun += 360;
+				globeViewRightLeftRotation = -(data.sun.decl * Math.sin(toRadians(lhaSun)));
+				console.log("Tilt is now", globeViewRightLeftRotation);
+			}
+		}
 	};
 
 	/**
