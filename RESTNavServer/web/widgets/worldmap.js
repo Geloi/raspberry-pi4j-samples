@@ -161,10 +161,10 @@ function WorldMap (cName, prj) {
 	 */
 	this.setAstronomicalData = function(data) {
 		astronomicalData = data;
-		console.log("Received", data);
+//	console.log("Received", data);
 		try {
 			var at = new Date(data.epoch);
-			console.log("At", at);
+//		console.log("At", at.format("Y-M-d H:i:s"));
 		} catch (err) {
 			console.log(err);
 		}
@@ -175,7 +175,7 @@ function WorldMap (cName, prj) {
 				while (lhaSun > 360) lhaSun -= 360;
 				while (lhaSun < 0) lhaSun += 360;
 				globeViewRightLeftRotation = -(data.sun.decl * Math.sin(toRadians(lhaSun)));
-				console.log("Tilt is now", globeViewRightLeftRotation);
+//			console.log("Tilt is now", globeViewRightLeftRotation);
 			}
 		}
 	};
@@ -272,11 +272,11 @@ function WorldMap (cName, prj) {
 	var getPanelPoint = function (lat, lng) {
 		var pt = {};
 		adjustBoundaries();
-		if (_north != _south && _east != _west) {
+		if (_north !== _south && _east !== _west) {
 			for (var gAmpl = _east - _west; gAmpl < 0; gAmpl += 360) ;
 			var graph2chartRatio = w / gAmpl;
 			var _lng = lng;
-			if (Math.abs(_west) > 180 && sign(_lng) != sign(_west) && sign(_lng) > 0) {
+			if (Math.abs(_west) > 180 && sign(_lng) !== sign(_west) && sign(_lng) > 0) {
 				_lng -= 360;
 			}
 			if (gAmpl > 180 && _lng < 0 && _west > 0) {
@@ -298,6 +298,14 @@ function WorldMap (cName, prj) {
 	var vGrid = 5,
 			hGrid = 5;
 	var w, h;
+
+	var haToLongitude = function(ha) {
+		var lng = - ha;
+		if (lng < -180) {
+			lng += 360;
+		}
+		return lng;
+	};
 
 	var drawGlobe = function (canvas, context) {
 		var minX = Number.MAX_VALUE;
@@ -505,6 +513,31 @@ function WorldMap (cName, prj) {
 			context.fillStyle = "red";
 			context.fillText("Your position", Math.round(userPos.x) + 3, Math.round(userPos.y) - 3);
 		}
+		// Celestial bodies?
+		if (astronomicalData !== {}) {
+			if (astronomicalData.sun !== undefined) {
+				var sunLng = haToLongitude(astronomicalData.sun.gha);
+				var sun = getPanelPoint(astronomicalData.sun.decl, sunLng);
+				var thisPointIsBehind = isBehind(toRadians(astronomicalData.sun.decl), toRadians(sunLng - globeViewLngOffset));
+				if (!thisPointIsBehind) {
+					// Draw Sun
+					plot(context, sun, "yellow");
+					context.fillStyle = "yellow";
+					context.fillText("Sun", Math.round(sun.x) + 3, Math.round(sun.y) - 3);
+				}
+			}
+			if (astronomicalData.moon !== undefined) {
+				var moonLng = haToLongitude(astronomicalData.moon.gha);
+				var moon = getPanelPoint(astronomicalData.moon.decl, moonLng);
+				var thisPointIsBehind = isBehind(toRadians(astronomicalData.moon.decl), toRadians(moonLng - globeViewLngOffset));
+				if (!thisPointIsBehind) {
+					// Draw Sun
+					plot(context, moon, "white");
+					context.fillStyle = "white";
+					context.fillText("Moon", Math.round(moon.x) + 3, Math.round(moon.y) - 3);
+				}
+			}
+		}
 	};
 
 	var drawAnaximandreChart = function (canvas, context) {
@@ -584,6 +617,7 @@ function WorldMap (cName, prj) {
 		if (userPosition !== {}) {
 			var strLat = decToSex(userPosition.latitude, "NS");
 			var strLng = decToSex(userPosition.longitude, "EW");
+			context.fillStyle = "cyan";
 			context.font = "bold 16px Arial"; // "bold 40px Arial"
 			context.fillText(strLat, 10, 18);
 			context.fillText(strLng, 10, 38);
